@@ -1,0 +1,2 @@
+model_checkpoint_path: "/Users/romc/Documents/RNN_exploation_learning/baselines/baselines/ppo1/tmp/test2"
+all_model_checkpoint_paths: "/Users/romc/Documents/RNN_exploation_learning/baselines/baselines/ppo1/tmp/test2"

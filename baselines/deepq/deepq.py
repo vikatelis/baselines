@@ -7,7 +7,7 @@ import cloudpickle
 import numpy as np
 
 import baselines.common.tf_util as U
-from baselines.common.tf_util import load_variables, save_variables
+from baselines.common.tf_util import load_state, save_state
 from baselines import logger
 from baselines.common.schedules import LinearSchedule
 from baselines.common import set_global_seeds
@@ -39,7 +39,7 @@ class ActWrapper(object):
                 f.write(model_data)
 
             zipfile.ZipFile(arc_path, 'r', zipfile.ZIP_DEFLATED).extractall(td)
-            load_variables(os.path.join(td, "model"))
+            load_state(os.path.join(td, "model"))
 
         return ActWrapper(act, act_params)
 
@@ -47,9 +47,6 @@ class ActWrapper(object):
         return self._act(*args, **kwargs)
 
     def step(self, observation, **kwargs):
-        # DQN doesn't use RNNs so we ignore states and masks
-        kwargs.pop('S', None)
-        kwargs.pop('M', None)
         return self._act([observation], **kwargs), None, None, None
 
     def save_act(self, path=None):
@@ -58,7 +55,7 @@ class ActWrapper(object):
             path = os.path.join(logger.get_dir(), "model.pkl")
 
         with tempfile.TemporaryDirectory() as td:
-            save_variables(os.path.join(td, "model"))
+            save_state(os.path.join(td, "model"))
             arc_name = os.path.join(td, "packed.zip")
             with zipfile.ZipFile(arc_name, 'w') as zipf:
                 for root, dirs, files in os.walk(td):
@@ -72,7 +69,8 @@ class ActWrapper(object):
             cloudpickle.dump((model_data, self._act_params), f)
 
     def save(self, path):
-        save_variables(path)
+        save_state(path)
+        self.save_act(path+".pickle")
 
 
 def load_act(path):
@@ -179,7 +177,7 @@ def learn(env,
     load_path: str
         path to load the model from. (default: None)
     **network_kwargs
-        additional keyword arguments to pass to the network builder.
+        additional keyword arguments to pass to the network builder. 
 
     Returns
     -------
@@ -218,7 +216,7 @@ def learn(env,
     }
 
     act = ActWrapper(act, act_params)
-
+  
     # Create the replay buffer
     if prioritized_replay:
         replay_buffer = PrioritizedReplayBuffer(buffer_size, alpha=prioritized_replay_alpha)
@@ -249,15 +247,15 @@ def learn(env,
 
         model_file = os.path.join(td, "model")
         model_saved = False
-
+        
         if tf.train.latest_checkpoint(td) is not None:
-            load_variables(model_file)
+            load_state(model_file)
             logger.log('Loaded model from {}'.format(model_file))
             model_saved = True
         elif load_path is not None:
-            load_variables(load_path)
+            load_state(load_path)
             logger.log('Loaded model from {}'.format(load_path))
-
+        
 
         for t in range(total_timesteps):
             if callback is not None:
@@ -324,12 +322,12 @@ def learn(env,
                     if print_freq is not None:
                         logger.log("Saving model due to mean reward increase: {} -> {}".format(
                                    saved_mean_reward, mean_100ep_reward))
-                    save_variables(model_file)
+                    save_state(model_file)
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
         if model_saved:
             if print_freq is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))
-            load_variables(model_file)
+            load_state(model_file)
 
     return act

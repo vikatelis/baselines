@@ -17,6 +17,7 @@ def train(env_id, num_timesteps, seed):
     workerseed = seed + 10000 * rank
     set_global_seeds(workerseed)
     env = make_robotics_env(env_id, workerseed, rank=rank)
+    print(env)
     def policy_fn(name, ob_space, ac_space):
         return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
             hid_size=256, num_hid_layers=3)

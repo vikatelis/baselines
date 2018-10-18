@@ -1,5 +1,5 @@
-import re
 from setuptools import setup, find_packages
+from functools import reduce
 import sys
 
 if sys.version_info.major != 3:
@@ -11,11 +11,9 @@ extras = {
     'test': [
         'filelock',
         'pytest'
-    ],
-    'bullet': [
-        'pybullet',
     ]
 }
+
 
 all_deps = []
 for group_name in extras:
@@ -27,7 +25,7 @@ setup(name='baselines',
       packages=[package for package in find_packages()
                 if package.startswith('baselines')],
       install_requires=[
-          'gym[mujoco,atari,classic_control,robotics]',
+          'gym[mujoco,atari,classic_control,robotics,optimization]',
           'scipy',
           'tqdm',
           'joblib',
@@ -50,6 +48,6 @@ setup(name='baselines',
 try:
     from distutils.version import StrictVersion
     import tensorflow
-    assert StrictVersion(re.sub(r'-rc\d+$', '', tensorflow.__version__)) >= StrictVersion('1.4.0')
+    assert StrictVersion(tensorflow.__version__) >= StrictVersion('1.4.0')
 except ImportError:
     assert False, "TensorFlow needed, of version above 1.4"

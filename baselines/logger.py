@@ -252,6 +252,7 @@ def get_dir():
     Get directory that log files are being written to.
     will be None if there is no output directory (i.e., if you didn't call start)
     """
+    print("CURRENT " +str(Logger.CURRENT))
     return Logger.CURRENT.get_dir()
 
 record_tabular = logkv
@@ -344,6 +345,8 @@ class Logger(object):
             if isinstance(fmt, SeqWriter):
                 fmt.writeseq(map(str, args))
 
+Logger.DEFAULT = Logger.CURRENT = Logger(dir=None, output_formats=[HumanOutputFormat(sys.stdout)])
+
 def configure(dir=None, format_strs=None):
     if dir is None:
         dir = os.getenv('OPENAI_LOGDIR')
@@ -354,12 +357,8 @@ def configure(dir=None, format_strs=None):
     os.makedirs(dir, exist_ok=True)
 
     log_suffix = ''
-    rank = 0
-    # check environment variables here instead of importing mpi4py
-    # to avoid calling MPI_Init() when this module is imported
-    for varname in ['PMI_RANK', 'OMPI_COMM_WORLD_RANK']:
-        if varname in os.environ:
-            rank = int(os.environ[varname])
+    from mpi4py import MPI
+    rank = MPI.COMM_WORLD.Get_rank()
     if rank > 0:
         log_suffix = "-rank%03i" % rank
 
@@ -373,14 +372,6 @@ def configure(dir=None, format_strs=None):
 
     Logger.CURRENT = Logger(dir=dir, output_formats=output_formats)
     log('Logging to %s'%dir)
-
-def _configure_default_logger():
-    format_strs = None
-    # keep the old default of only writing to stdout
-    if 'OPENAI_LOG_FORMAT' not in os.environ:
-        format_strs = ['stdout']
-    configure(format_strs=format_strs)
-    Logger.DEFAULT = Logger.CURRENT
 
 def reset():
     if Logger.CURRENT is not Logger.DEFAULT:
@@ -480,9 +471,6 @@ def read_tb(path):
         for (step, value) in pairs:
             data[step-1, colidx] = value
     return pandas.DataFrame(data, columns=tags)
-
-# configure the default logger on import
-_configure_default_logger()
 
 if __name__ == "__main__":
     _demo()

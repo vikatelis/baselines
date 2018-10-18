@@ -1,0 +1,2 @@
+Logging to test2
+Running trained model

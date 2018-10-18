@@ -293,7 +293,7 @@ def display_var_info(vars):
         if "/Adam" in name or "beta1_power" in name or "beta2_power" in name: continue
         v_params = np.prod(v.shape.as_list())
         count_params += v_params
-        if "/b:" in name or "/bias" in name: continue    # Wx+b, bias is not interesting to look at => count params, but not print
+        if "/b:" in name or "/biases" in name: continue    # Wx+b, bias is not interesting to look at => count params, but not print
         logger.info("   %s%s %i params %s" % (name, " "*(55-len(name)), v_params, str(v.shape)))
 
     logger.info("Total model parameters: %0.2f million" % (count_params*1e-6))
@@ -312,19 +312,14 @@ def get_available_gpus():
 # ================================================================
 
 def load_state(fname, sess=None):
-    from baselines import logger
-    logger.warn('load_state method is deprecated, please use load_variables instead')
     sess = sess or get_session()
     saver = tf.train.Saver()
     saver.restore(tf.get_default_session(), fname)
 
 def save_state(fname, sess=None):
-    from baselines import logger
-    logger.warn('save_state method is deprecated, please use save_variables instead')
+    print("saving state ")
     sess = sess or get_session()
-    dirname = os.path.dirname(fname)
-    if any(dirname):
-        os.makedirs(dirname, exist_ok=True)
+    os.makedirs(os.path.dirname(fname), exist_ok=True)
     saver = tf.train.Saver()
     saver.save(tf.get_default_session(), fname)
 
@@ -337,9 +332,7 @@ def save_variables(save_path, variables=None, sess=None):
 
     ps = sess.run(variables)
     save_dict = {v.name: value for v, value in zip(variables, ps)}
-    dirname = os.path.dirname(save_path)
-    if any(dirname):
-        os.makedirs(dirname, exist_ok=True)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
     joblib.dump(save_dict, save_path)
 
 def load_variables(load_path, variables=None, sess=None):
@@ -348,15 +341,10 @@ def load_variables(load_path, variables=None, sess=None):
 
     loaded_params = joblib.load(os.path.expanduser(load_path))
     restores = []
-    if isinstance(loaded_params, list):
-        assert len(loaded_params) == len(variables), 'number of variables loaded mismatches len(variables)'
-        for d, v in zip(loaded_params, variables):
-            restores.append(v.assign(d))
-    else:
-        for v in variables:
-            restores.append(v.assign(loaded_params[v.name]))
-
+    for v in variables:
+        restores.append(v.assign(loaded_params[v.name]))
     sess.run(restores)
+
 
 # ================================================================
 # Shape adjustment for feeding into tf placeholders
@@ -406,25 +394,12 @@ def _check_shape(placeholder_shape, data_shape):
 def _squeeze_shape(shape):
     return [x for x in shape if x != 1]
 
-# ================================================================
 # Tensorboard interfacing
 # ================================================================
 
 def launch_tensorboard_in_background(log_dir):
-    '''
-    To log the Tensorflow graph when using rl-algs
-    algorithms, you can run the following code
-    in your main script:
-        import threading, time
-        def start_tensorboard(session):
-            time.sleep(10) # Wait until graph is setup
-            tb_path = osp.join(logger.get_dir(), 'tb')
-            summary_writer = tf.summary.FileWriter(tb_path, graph=session.graph)
-            summary_op = tf.summary.merge_all()
-            launch_tensorboard_in_background(tb_path)
-        session = tf.get_default_session()
-        t = threading.Thread(target=start_tensorboard, args=([session]))
-        t.start()
-    '''
-    import subprocess
-    subprocess.Popen(['tensorboard', '--logdir', log_dir])
+    from tensorboard import main as tb
+    import threading
+    tf.flags.FLAGS.logdir = log_dir
+    t = threading.Thread(target=tb.main, args=([]))
+    t.start()

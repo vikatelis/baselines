@@ -43,6 +43,5 @@ def test_lstm_example():
 
         assert step_counter > 5
 
-
-
-
+if __name__ == '__main__':
+    test_lstm_example()

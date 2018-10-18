@@ -24,6 +24,7 @@ class VecFrameStack(VecEnvWrapper):
         return self.stackedobs, rews, news, infos
 
     def reset(self):
+        print("RESET IN FRAME STACK WRAPPER")
         obs = self.venv.reset()
         self.stackedobs[...] = 0
         self.stackedobs[..., -obs.shape[-1]:] = obs

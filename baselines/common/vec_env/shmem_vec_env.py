@@ -7,6 +7,7 @@ import numpy as np
 from . import VecEnv, CloudpickleWrapper
 import ctypes
 from baselines import logger
+from baselines.common.tile_images import tile_images
 
 from .util import dict_to_obs, obs_space_info, obs_to_dict
 
@@ -19,7 +20,8 @@ _NP_TO_CT = {np.float32: ctypes.c_float,
 
 class ShmemVecEnv(VecEnv):
     """
-    Optimized version of SubprocVecEnv that uses shared variables to communicate observations.
+    An AsyncEnv that uses multiprocessing to run multiple
+    environments in parallel.
     """
 
     def __init__(self, env_fns, spaces=None):
@@ -74,7 +76,7 @@ class ShmemVecEnv(VecEnv):
         obs, rews, dones, infos = zip(*outs)
         return self._decode_obses(obs), np.array(rews), np.array(dones), infos
 
-    def close_extras(self):
+    def close(self):
         if self.waiting_step:
             self.step_wait()
         for pipe in self.parent_pipes:
@@ -84,11 +86,24 @@ class ShmemVecEnv(VecEnv):
             pipe.close()
         for proc in self.procs:
             proc.join()
+        if self.viewer is not None:
+            self.viewer.close()
 
-    def get_images(self, mode='human'):
+    def render(self, mode='human'):
         for pipe in self.parent_pipes:
             pipe.send(('render', None))
-        return [pipe.recv() for pipe in self.parent_pipes]
+        imgs = [pipe.recv() for pipe in self.parent_pipes]
+        bigimg = tile_images(imgs)
+        if mode == 'human':
+            if self.viewer is None:
+                from gym.envs.classic_control import rendering
+                self.viewer = rendering.SimpleImageViewer()
+
+            self.viewer.imshow(bigimg[:, :, ::-1])
+        elif mode == 'rgb_array':
+            return bigimg
+        else:
+            raise NotImplementedError
 
     def _decode_obses(self, obs):
         result = {}

@@ -34,7 +34,9 @@ class PolicyWithValue(object):
         """
 
         self.X = observations
+        print("observation ",str(observations))
         self.state = tf.constant([])
+        print("self.state ", str(self.state))
         self.initial_state = None
         self.__dict__.update(tensors)
 
@@ -43,15 +45,12 @@ class PolicyWithValue(object):
         vf_latent = tf.layers.flatten(vf_latent)
         latent = tf.layers.flatten(latent)
 
-        # Based on the action space, will select what probability distribution type
         self.pdtype = make_pdtype(env.action_space)
 
         self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
 
-        # Take an action
+        #self.action = self.pd.mode()
         self.action = self.pd.sample()
-
-        # Calculate the neg log of our probability
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess
 
@@ -76,7 +75,7 @@ class PolicyWithValue(object):
 
     def step(self, observation, **extra_feed):
         """
-        Compute next action(s) given the observation(s)
+        Compute next action(s) given the observaion(s)
 
         Parameters:
         ----------
@@ -91,13 +90,15 @@ class PolicyWithValue(object):
         """
 
         a, v, state, neglogp = self._evaluate([self.action, self.vf, self.state, self.neglogp], observation, **extra_feed)
+
+        #print("HUHUHU "+str(a) )
         if state.size == 0:
             state = None
         return a, v, state, neglogp
 
     def value(self, ob, *args, **kwargs):
         """
-        Compute value estimate(s) given the observation(s)
+        Compute value estimate(s) given the observaion(s)
 
         Parameters:
         ----------
@@ -122,8 +123,10 @@ def build_policy(env, policy_network, value_network=None,  normalize_observation
     if isinstance(policy_network, str):
         network_type = policy_network
         policy_network = get_network_builder(network_type)(**policy_kwargs)
+        print("WHERE THE FUCK IS THIS "+str(policy_network ) )
 
     def policy_fn(nbatch=None, nsteps=None, sess=None, observ_placeholder=None):
+        print("IN HERE   JIJIJIJI")
         ob_space = env.observation_space
 
         X = observ_placeholder if observ_placeholder is not None else observation_placeholder(ob_space, batch_size=nbatch)
@@ -139,16 +142,16 @@ def build_policy(env, policy_network, value_network=None,  normalize_observation
         encoded_x = encode_observation(ob_space, encoded_x)
 
         with tf.variable_scope('pi', reuse=tf.AUTO_REUSE):
-            policy_latent = policy_network(encoded_x)
-            if isinstance(policy_latent, tuple):
-                policy_latent, recurrent_tensors = policy_latent
+            policy_latent, recurrent_tensors = policy_network(encoded_x)
+            print(" IN POLICY LATENT ",str(policy_latent)," and recurrent ",str(recurrent_tensors))
 
-                if recurrent_tensors is not None:
-                    # recurrent architecture, need a few more steps
-                    nenv = nbatch // nsteps
-                    assert nenv > 0, 'Bad input for recurrent policy: batch size {} smaller than nsteps {}'.format(nbatch, nsteps)
-                    policy_latent, recurrent_tensors = policy_network(encoded_x, nenv)
-                    extra_tensors.update(recurrent_tensors)
+            if recurrent_tensors is not None:
+                # recurrent architecture, need a few more steps
+                nenv = nbatch // nsteps
+                assert nenv > 0, 'Bad input for recurrent policy: batch size {} smaller than nsteps {}'.format(nbatch, nsteps)
+                print("policy_network is "+str(policy_network))
+                policy_latent, recurrent_tensors = policy_network(encoded_x, nenv)
+                extra_tensors.update(recurrent_tensors)
 
 
         _v_net = value_network
@@ -162,8 +165,7 @@ def build_policy(env, policy_network, value_network=None,  normalize_observation
                 assert callable(_v_net)
 
             with tf.variable_scope('vf', reuse=tf.AUTO_REUSE):
-                # TODO recurrent architectures are not supported with value_network=copy yet
-                vf_latent = _v_net(encoded_x)
+                vf_latent, _ = _v_net(encoded_x)
 
         policy = PolicyWithValue(
             env=env,
@@ -176,6 +178,8 @@ def build_policy(env, policy_network, value_network=None,  normalize_observation
         )
         return policy
 
+    print("POLICY "+ str(policy_fn))
+
     return policy_fn
 
 
@@ -183,4 +187,3 @@ def _normalize_clip_observation(x, clip_range=[-5.0, 5.0]):
     rms = RunningMeanStd(shape=x.shape[1:])
     norm_x = tf.clip_by_value((x - rms.mean) / rms.std, min(clip_range), max(clip_range))
     return norm_x, rms
-

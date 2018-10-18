@@ -13,33 +13,42 @@ from gym.wrappers import FlattenDictWrapper
 from baselines import logger
 from baselines.bench import Monitor
 from baselines.common import set_global_seeds
-from baselines.common.atari_wrappers import make_atari, wrap_deepmind
+from baselines.common.atari_wrappers import make_atari, wrap_deepmind, make_rosi
+#from baselines.common.rosenbrock_wrapper import make_rosenbrock, wrap_deepmind
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from baselines.common.retro_wrappers import RewardScaler
 
-
-def make_vec_env(env_id, env_type, num_env, seed, wrapper_kwargs=None, start_index=0, reward_scale=1.0):
+def make_atari_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
     """
-    Create a wrapped, monitored SubprocVecEnv for Atari and MuJoCo.
+    Create a wrapped, monitored SubprocVecEnv for Atari.
     """
     if wrapper_kwargs is None: wrapper_kwargs = {}
     mpi_rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
     def make_env(rank): # pylint: disable=C0111
         def _thunk():
-            env = make_atari(env_id) if env_type == 'atari' else gym.make(env_id)
+            env = make_atari(env_id)
             env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
-            env = Monitor(env,
-                          logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)),
-                          allow_early_resets=True)
-
-            if env_type == 'atari': return wrap_deepmind(env, **wrapper_kwargs)
-            elif reward_scale != 1: return RewardScaler(env, reward_scale)
-            else: return env
+            env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)))
+            return wrap_deepmind(env, **wrapper_kwargs)
         return _thunk
     set_global_seeds(seed)
-    if num_env > 1: return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
-    else: return DummyVecEnv([make_env(start_index)])
+    return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
+
+def make_rosenbrock_env(env_id, num_env, seed, wrapper_kwargs=None, start_index=0):
+    """
+    Create a wrapped, monitored gym.Env for Rosi.
+    """
+    if wrapper_kwargs is None: wrapper_kwargs = {}
+    mpi_rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
+    def make_env(rank): # pylint: disable=C0111
+        def _thunk():
+            env = make_rosi(env_id)
+            env.seed(seed + 10000*mpi_rank + rank if seed is not None else None)
+            env = Monitor(env, logger.get_dir() and os.path.join(logger.get_dir(), str(mpi_rank) + '.' + str(rank)),allow_early_resets=True)
+            #env = DummyVecEnv(env)
+            return env
+        return _thunk
+    set_global_seeds(seed)
+    return SubprocVecEnv([make_env(i + start_index) for i in range(num_env)])
 
 def make_mujoco_env(env_id, seed, reward_scale=1.0):
     """
@@ -52,9 +61,11 @@ def make_mujoco_env(env_id, seed, reward_scale=1.0):
     logger_path = None if logger.get_dir() is None else os.path.join(logger.get_dir(), str(rank))
     env = Monitor(env, logger_path, allow_early_resets=True)
     env.seed(seed)
+
     if reward_scale != 1.0:
         from baselines.common.retro_wrappers import RewardScaler
         env = RewardScaler(env, reward_scale)
+
     return env
 
 def make_robotics_env(env_id, seed, rank=0):
@@ -83,6 +94,18 @@ def atari_arg_parser():
     """
     print('Obsolete - use common_arg_parser instead')
     return common_arg_parser()
+
+
+def rosi_arg_parser():
+    """
+    Create an argparse.ArgumentParser for rosi.py.
+    """
+    parser = arg_parser()
+    parser.add_argument('--env', help='environment ID', default='Rosi-v0')
+    parser.add_argument('--seed', help='RNG seed', type=int, default=0)
+    parser.add_argument('--num-timesteps', type=int, default=int(500000))
+    parser.add_argument('--play', default=False, action='store_true')
+    return parser
 
 def mujoco_arg_parser():
     print('Obsolete - use common_arg_parser instead')
@@ -121,18 +144,11 @@ def parse_unknown_args(args):
     Parse arguments not consumed by arg parser into a dicitonary
     """
     retval = {}
-    preceded_by_key = False
     for arg in args:
-        if arg.startswith('--'):
-            if '=' in arg:
-                key = arg.split('=')[0][2:]
-                value = arg.split('=')[1]
-                retval[key] = value
-            else:
-                key = arg[2:]
-                preceded_by_key = True
-        elif preceded_by_key:
-            retval[key] = arg
-            preceded_by_key = False
+        assert arg.startswith('--')
+        assert '=' in arg, 'cannot parse arg {}'.format(arg)
+        key = arg.split('=')[0][2:]
+        value = arg.split('=')[1]
+        retval[key] = value
 
     return retval

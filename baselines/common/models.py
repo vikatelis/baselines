@@ -5,13 +5,6 @@ from baselines.a2c.utils import conv, fc, conv_to_fc, batch_to_seq, seq_to_batch
 from baselines.common.mpi_running_mean_std import RunningMeanStd
 import tensorflow.contrib.layers as layers
 
-mapping = {}
-
-def register(name):
-    def _thunk(func):
-        mapping[name] = func
-        return func
-    return _thunk
 
 def nature_cnn(unscaled_images, **conv_kwargs):
     """
@@ -27,8 +20,7 @@ def nature_cnn(unscaled_images, **conv_kwargs):
     return activ(fc(h3, 'fc1', nh=512, init_scale=np.sqrt(2)))
 
 
-@register("mlp")
-def mlp(num_layers=2, num_hidden=64, activation=tf.tanh, layer_norm=False):
+def mlp(num_layers=2, num_hidden=64, activation=tf.tanh):
     """
     Stack of fully-connected layers to be used in a policy / q-function approximator
 
@@ -49,24 +41,17 @@ def mlp(num_layers=2, num_hidden=64, activation=tf.tanh, layer_norm=False):
     def network_fn(X):
         h = tf.layers.flatten(X)
         for i in range(num_layers):
-            h = fc(h, 'mlp_fc{}'.format(i), nh=num_hidden, init_scale=np.sqrt(2))
-            if layer_norm:
-                h = tf.contrib.layers.layer_norm(h, center=True, scale=True)
-            h = activation(h)
-
-        return h
+            h = activation(fc(h, 'mlp_fc{}'.format(i), nh=num_hidden, init_scale=np.sqrt(2)))
+        return h, None
 
     return network_fn
 
 
-@register("cnn")
 def cnn(**conv_kwargs):
     def network_fn(X):
-        return nature_cnn(X, **conv_kwargs)
+        return nature_cnn(X, **conv_kwargs), None
     return network_fn
 
-
-@register("cnn_small")
 def cnn_small(**conv_kwargs):
     def network_fn(X):
         h = tf.cast(X, tf.float32) / 255.
@@ -76,12 +61,12 @@ def cnn_small(**conv_kwargs):
         h = activ(conv(h, 'c2', nf=16, rf=4, stride=2, init_scale=np.sqrt(2), **conv_kwargs))
         h = conv_to_fc(h)
         h = activ(fc(h, 'fc1', nh=128, init_scale=np.sqrt(2)))
-        return h
+        return h, None
     return network_fn
 
 
-@register("lstm")
-def lstm(nlstm=128, layer_norm=False):
+
+def lstm(nlstm=8, layer_norm=True):
     """
     Builds LSTM (Long-Short Term Memory) network to be used in a policy.
     Note that the resulting function returns not only the output of the LSTM
@@ -110,7 +95,10 @@ def lstm(nlstm=128, layer_norm=False):
     function that builds LSTM with a given input tensor / placeholder
     """
 
+
     def network_fn(X, nenv=1):
+        print("")
+        print("IN HERE LSTM and this is X ",str(X))
         nbatch = X.shape[0]
         nsteps = nbatch // nenv
 
@@ -128,14 +116,16 @@ def lstm(nlstm=128, layer_norm=False):
             h5, snew = utils.lstm(xs, ms, S, scope='lstm', nh=nlstm)
 
         h = seq_to_batch(h5)
-        initial_state = np.zeros(S.shape.as_list(), dtype=float)
+
+        ## TODO:  need to change initialization of state!
+        #initial_state = np.zeros(S.shape.as_list(), dtype=float)
+        initial_state = np.ones(S.shape.as_list(), dtype=float)
 
         return h, {'S':S, 'M':M, 'state':snew, 'initial_state':initial_state}
 
     return network_fn
 
 
-@register("cnn_lstm")
 def cnn_lstm(nlstm=128, layer_norm=False, **conv_kwargs):
     def network_fn(X, nenv=1):
         nbatch = X.shape[0]
@@ -161,13 +151,10 @@ def cnn_lstm(nlstm=128, layer_norm=False, **conv_kwargs):
 
     return network_fn
 
-
-@register("cnn_lnlstm")
 def cnn_lnlstm(nlstm=128, **conv_kwargs):
     return cnn_lstm(nlstm, layer_norm=True, **conv_kwargs)
 
 
-@register("conv_only")
 def conv_only(convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)], **conv_kwargs):
     '''
     convolutions-only net
@@ -194,7 +181,7 @@ def conv_only(convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)], **conv_kwargs):
                                            activation_fn=tf.nn.relu,
                                            **conv_kwargs)
 
-        return out
+        return out, None
     return network_fn
 
 def _normalize_clip_observation(x, clip_range=[-5.0, 5.0]):
@@ -204,21 +191,20 @@ def _normalize_clip_observation(x, clip_range=[-5.0, 5.0]):
 
 
 def get_network_builder(name):
-    """
-    If you want to register your own network outside models.py, you just need:
-
-    Usage Example:
-    -------------
-    from baselines.common.models import register
-    @register("your_network_name")
-    def your_network_define(**net_kwargs):
-        ...
-        return network_fn
-
-    """
-    if callable(name):
-        return name
-    elif name in mapping:
-        return mapping[name]
+    # TODO: replace with reflection?
+    if name == 'cnn':
+        return cnn
+    elif name == 'cnn_small':
+        return cnn_small
+    elif name == 'conv_only':
+        return conv_only
+    elif name == 'mlp':
+        return mlp
+    elif name == 'lstm':
+        return lstm
+    elif name == 'cnn_lstm':
+        return cnn_lstm
+    elif name == 'cnn_lnlstm':
+        return cnn_lnlstm
     else:
         raise ValueError('Unknown network type: {}'.format(name))

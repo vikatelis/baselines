@@ -220,6 +220,10 @@ def make_atari(env_id):
     env = MaxAndSkipEnv(env, skip=4)
     return env
 
+def make_rosi(env_id):
+    env = gym.make(env_id)
+    return env
+
 def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, scale=False):
     """Configure environment for DeepMind-style Atari.
     """
@@ -235,4 +239,3 @@ def wrap_deepmind(env, episode_life=True, clip_rewards=True, frame_stack=False, 
     if frame_stack:
         env = FrameStack(env, 4)
     return env
-
