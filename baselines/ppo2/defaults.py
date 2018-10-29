@@ -23,9 +23,11 @@ def atari():
 
 def optimization():
     return dict(
-        nsteps=128, nminibatches=3,
-        lam=0.95, gamma=0.99, noptepochs=4, log_interval=10,
-        ent_coef=0.0,
-        lr=lambda f : f * 2.5e-2,
-        cliprange=lambda f : f * 0.1,
+        nsteps=512, nminibatches=3,
+        lam=0.95, gamma=0.9, noptepochs=4, log_interval=10,
+        ent_coef=0,
+        #lr=lambda f : f * 2.5e-8,
+        lr=lambda f : f * 2.5e-4,
+        cliprange=lambda f : 0.1,
+        #cliprange=lambda f : f,
     )

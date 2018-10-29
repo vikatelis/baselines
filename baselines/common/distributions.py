@@ -84,10 +84,18 @@ class DiagGaussianPdType(PdType):
         return DiagGaussianPd
 
     def pdfromlatent(self, latent_vector, init_scale=1.0, init_bias=0.0):
-        mean = fc(latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
+        activation = tf.tanh;
+        me = latent_vector;
+        for i in range(1):
+            me = activation(fc(me, 'pi{}'.format(i), nh=3, init_scale=np.sqrt(2)))
+
+
+        mean = fc(me, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
+        #mean = fc(latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
+        print("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ",str(mean))
         init = tf.constant(0.001*np.ones((1,self.size)))
-        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.zeros_initializer())
-        #logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-1.1))
+        #logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.zeros_initializer())
+        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-3.9), trainable=False)
         pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
         return self.pdfromflat(pdparam), mean
 
@@ -197,7 +205,7 @@ class DiagGaussianPd(Pd):
         self.mean = mean
         self.logstd = logstd
         self.std = tf.exp(logstd)
-
+        print(.5 * np.log(2.0 * np.pi * np.e))
     def flatparam(self):
         return self.flat
     def mode(self):
@@ -211,14 +219,9 @@ class DiagGaussianPd(Pd):
         return tf.reduce_sum(other.logstd - self.logstd + (tf.square(self.std) + tf.square(self.mean - other.mean)) / (2.0 * tf.square(other.std)) - 0.5, axis=-1)
     def entropy(self):
         return tf.reduce_sum(self.logstd + .5 * np.log(2.0 * np.pi * np.e), axis=-1)
+        #return tf.reduce_sum(self.logstd,axis=-1) # + .5 * np.log(2.0 * np.pi * np.e), axis=-1)
     def sample(self):
-        # get variable input pi/?
-        # tf.get_variable(x)
-
-        self.std = 0.2
-
-        print("   ")
-        #print("HUHHUH ",str(tf.get_variable("ppo2_model")))
+        print(self.mean + self.std * tf.random_normal(tf.shape(self.mean)))
         return self.mean + self.std * tf.random_normal(tf.shape(self.mean))
     @classmethod
     def fromflat(cls, flat):

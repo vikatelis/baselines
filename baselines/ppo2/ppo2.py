@@ -53,7 +53,7 @@ class Model(object):
         pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
-        loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
+        loss = pg_losses2 - entropy * ent_coef + vf_loss * vf_coef
         params = tf.trainable_variables('ppo2_model')
         trainer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=LR, epsilon=1e-5)
         grads_and_var = trainer.compute_gradients(loss, params)
@@ -125,9 +125,6 @@ class Runner(AbstractEnvRunner):
         epinfos = []
         for _ in range(self.nsteps):
             actions, values, self.states, neglogpacs = self.model.step(self.obs, S=self.states, M=self.dones)
-            #print(actions)
-            #print("self.states is "+str(self.states))
-            #print("actions are "+str(actions))
             mb_obs.append(self.obs.copy())
             mb_actions.append(actions)
             mb_values.append(values)
@@ -214,7 +211,7 @@ def run(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0, 
 
     model = make_model()
 
-    load_path = "/Users/romc/Documents/RNN_exploration_learning/baselines/models/4200/model.ckpt"
+    load_path = "/Users/romc/Documents/RNN_exploration_learning/baselines/models/651/model.ckpt"
 
     if load_path is not None:
         model.load(load_path)
@@ -342,6 +339,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         tstart = time.time()
         frac = 1.0 - (update - 1.0) / nupdates
         lrnow = lr(frac)
+        print("LEARNING RATE ",str(lrnow))
         cliprangenow = cliprange(frac)
         obs, returns, masks, actions, values, neglogpacs, states, epinfos = runner.run() #pylint: disable=E0632
         epinfobuf.extend(epinfos)

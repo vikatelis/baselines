@@ -6,6 +6,9 @@ from baselines.common.input import observation_placeholder, encode_observation
 from baselines.common.tf_util import adjust_shape
 from baselines.common.mpi_running_mean_std import RunningMeanStd
 from baselines.common.models import get_network_builder
+from baselines.common.models import mlp
+import numpy as np
+
 
 import gym
 
@@ -49,7 +52,8 @@ class PolicyWithValue(object):
 
         self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
 
-        #self.action = self.pd.mode()
+        self.action = self.pd.mode()
+        #
         self.action = self.pd.sample()
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess
@@ -59,8 +63,15 @@ class PolicyWithValue(object):
             self.q = fc(vf_latent, 'q', env.action_space.n)
             self.vf = self.q
         else:
-            self.vf = fc(vf_latent, 'vf', 1)
-            self.vf = self.vf[:,0]
+            #self.vf = fc(vf_latent, 'vf', 1)
+            h = vf_latent
+            activation = tf.tanh;
+            for i in range(1):
+                h = activation(fc(h, 'vf{}'.format(i), nh=3, init_scale=np.sqrt(2)))
+            #self.vf = fc(vf_latent, 'vf', 1)
+            #self.vf = self.vf[:,0]
+            self.vf = fc(h, 'vf_final', 1)[:,0]
+            #self.vf = h[:,0]
 
     def _evaluate(self, variables, observation, **extra_feed):
         sess = self.sess or tf.get_default_session()
@@ -126,7 +137,7 @@ def build_policy(env, policy_network, value_network=None,  normalize_observation
         print("WHERE THE FUCK IS THIS "+str(policy_network ) )
 
     def policy_fn(nbatch=None, nsteps=None, sess=None, observ_placeholder=None):
-        print("IN HERE   JIJIJIJI")
+        print("IN HERE   JIJIJIJI cdcddd", str(normalize_observations), "hdiuwdhwiuh")
         ob_space = env.observation_space
 
         X = observ_placeholder if observ_placeholder is not None else observation_placeholder(ob_space, batch_size=nbatch)

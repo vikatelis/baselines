@@ -66,7 +66,7 @@ def cnn_small(**conv_kwargs):
 
 
 
-def lstm(nlstm=8, layer_norm=True):
+def lstm(nlstm=4, layer_norm=False):
     """
     Builds LSTM (Long-Short Term Memory) network to be used in a policy.
     Note that the resulting function returns not only the output of the LSTM
@@ -106,6 +106,7 @@ def lstm(nlstm=8, layer_norm=True):
 
         M = tf.placeholder(tf.float32, [nbatch]) #mask (done t-1)
         S = tf.placeholder(tf.float32, [nenv, 2*nlstm]) #states
+        #T = tf.get_variable(name='init', shape=[1, 2], initializer=tf.constant_initializer(1)) # task desciptor
 
         xs = batch_to_seq(h, nenv, nsteps)
         ms = batch_to_seq(M, nenv, nsteps)
@@ -118,8 +119,15 @@ def lstm(nlstm=8, layer_norm=True):
         h = seq_to_batch(h5)
 
         ## TODO:  need to change initialization of state!
-        #initial_state = np.zeros(S.shape.as_list(), dtype=float)
         initial_state = np.ones(S.shape.as_list(), dtype=float)
+
+
+        print("")
+        print("HHHHH ",str(S.shape.as_list()))
+        print(nenv)
+
+        #initial_state = utils.fc(T,'pi_init', [nenv,48], init_scale=0.01, init_bias=0.01)
+        #initial_state = tf.get_variable(name='init_state', shape=initial_state.shape, initializer=tf.zeros_initializer(), trainable=True) # task desciptor
 
         return h, {'S':S, 'M':M, 'state':snew, 'initial_state':initial_state}
 
