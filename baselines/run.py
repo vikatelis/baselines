@@ -272,8 +272,6 @@ def main():
 
     args.play = True
     args.num_env =1
-
-
     args.nsteps = 524
     #print("ARGS IS ", args)
     #print("extra_args IS ", extra_args)

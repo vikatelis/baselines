@@ -90,7 +90,7 @@ class DiagGaussianPdType(PdType):
             me = activation(fc(me, 'pi{}'.format(i), nh=3, init_scale=np.sqrt(2)))
 
 
-        mean = fc(me, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
+        mean = tf.nn.relu(fc(me, 'pi', self.size, init_scale=init_scale, init_bias=init_bias))
         #mean = fc(latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
         print("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ",str(mean))
         init = tf.constant(0.001*np.ones((1,self.size)))

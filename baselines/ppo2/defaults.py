@@ -28,6 +28,6 @@ def optimization():
         ent_coef=0,
         #lr=lambda f : f * 2.5e-8,
         lr=lambda f : f * 2.5e-4,
-        cliprange=lambda f : 0.1,
+        cliprange=lambda f : f*0.1,
         #cliprange=lambda f : f,
     )
