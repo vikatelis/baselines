@@ -52,6 +52,8 @@ class Model(object):
         pg_losses2 = -ADV * tf.clip_by_value(ratio, 1.0 - CLIPRANGE, 1.0 + CLIPRANGE)
         pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
+        print()
+        print("CLIPRANGE ",str(CLIPRANGE))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
         loss = pg_losses2 - entropy * ent_coef + vf_loss * vf_coef
         params = tf.trainable_variables('ppo2_model')
@@ -341,6 +343,8 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         lrnow = lr(frac)
         print("LEARNING RATE ",str(lrnow))
         cliprangenow = cliprange(frac)
+        print("")
+        print("cliprangenow ",str(cliprangenow))
         obs, returns, masks, actions, values, neglogpacs, states, epinfos = runner.run() #pylint: disable=E0632
         epinfobuf.extend(epinfos)
         mblossvals = []
