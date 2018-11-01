@@ -90,12 +90,12 @@ class DiagGaussianPdType(PdType):
             me = activation(fc(me, 'pi{}'.format(i), nh=3, init_scale=np.sqrt(2)))
 
 
-        mean = tf.nn.relu(fc(me, 'pi', self.size, init_scale=init_scale, init_bias=init_bias))
+        mean = fc(me, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
         #mean = fc(latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
         print("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ",str(mean))
         init = tf.constant(0.001*np.ones((1,self.size)))
         #logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.zeros_initializer())
-        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-3.9), trainable=True)
+        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-1.9), trainable=True)
         pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
         return self.pdfromflat(pdparam), mean
 

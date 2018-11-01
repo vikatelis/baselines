@@ -213,7 +213,7 @@ def run(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0, 
 
     model = make_model()
 
-    load_path = "/Users/romc/Documents/RNN_exploration_learning/baselines/models/651/model.ckpt"
+    load_path = "/Users/romc/Documents/RNN_exploration_learning/baselines/models/162/model.ckpt"
 
     if load_path is not None:
         model.load(load_path)

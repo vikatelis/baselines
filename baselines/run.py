@@ -271,13 +271,13 @@ def main():
         rank = MPI.COMM_WORLD.Get_rank
 
     args.play = True
-    args.num_env = 3
+    args.num_env = 1
     #args.nsteps = 512
     #print("ARGS IS ", args)
     #print("extra_args IS ", extra_args)
     print("")
     print("RUNNING CORRECTLY")
-    model, _ = train(args, extra_args)
+    model, _ = run(args, extra_args)
 
 
     #args.save_path = "/Users/romc/Documents/RNN_exploation_learning/baselines/test/checkpoints/0001"

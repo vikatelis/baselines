@@ -119,7 +119,7 @@ def lstm(nlstm=4, layer_norm=False):
         h = seq_to_batch(h5)
 
         ## TODO:  need to change initialization of state!
-        initial_state = np.ones(S.shape.as_list(), dtype=float)
+        initial_state = np.zeros(S.shape.as_list(), dtype=float)
 
 
         print("")
