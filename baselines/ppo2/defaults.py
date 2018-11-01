@@ -27,7 +27,7 @@ def optimization():
         lam=0.95, gamma=0.9, noptepochs=4, log_interval=10,
         ent_coef=0,
         #lr=lambda f : f * 2.5e-8,
-        lr=lambda f : f * 2.5e-4,
+        lr=lambda f : f * 2.5e-3,
         cliprange=lambda f : f*0.1,
         #cliprange=lambda f : f,
     )
