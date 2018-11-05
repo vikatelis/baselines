@@ -52,8 +52,8 @@ class PolicyWithValue(object):
 
         self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
 
-        self.action = self.pd.mode()
-        #self.action = self.pd.sample()
+        #self.action = self.pd.mode()
+        self.action = self.pd.sample()
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess
 
@@ -66,7 +66,7 @@ class PolicyWithValue(object):
             h = vf_latent
             activation = tf.tanh;
             for i in range(1):
-                h = activation(fc(h, 'vf{}'.format(i), nh=3, init_scale=np.sqrt(2)))
+                h = activation(fc(h, 'vf{}'.format(i), nh=4, init_scale=np.sqrt(2)))
             #self.vf = fc(vf_latent, 'vf', 1)
             #self.vf = self.vf[:,0]
             self.vf = fc(h, 'vf_final', 1)[:,0]
