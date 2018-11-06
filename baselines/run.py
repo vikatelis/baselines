@@ -52,7 +52,7 @@ _game_envs['retro'] = set([
 def train(args, extra_args):
     env_type, env_id = get_env_type(args.env)
 
-    total_timesteps = int(args.num_timesteps)
+    total_timesteps = 5*int(args.num_timesteps)
     print("total number of timesteps gffg",str(args.num_timesteps))
     seed = args.seed
 
@@ -271,13 +271,13 @@ def main():
         rank = MPI.COMM_WORLD.Get_rank
 
     args.play = True
-    args.num_env = 1
+    args.num_env = 3
     #args.nsteps = 512
     #print("ARGS IS ", args)
     #print("extra_args IS ", extra_args)
     print("")
     print("RUNNING CORRECTLY")
-    model, _ = run(args, extra_args)
+    model, _ = train(args, extra_args)
 
 
     #args.save_path = "/Users/romc/Documents/RNN_exploation_learning/baselines/test/checkpoints/0001"
@@ -312,7 +312,9 @@ def main():
             s = out[2]
             m = out[3]
             actions = out[0]
+
             print("actions "+str(actions))
+            print(type(actions[0]))
 
 
             #if step <5:

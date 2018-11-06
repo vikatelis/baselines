@@ -95,7 +95,7 @@ class DiagGaussianPdType(PdType):
         print("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ",str(mean))
         init = tf.constant(0.001*np.ones((1,self.size)))
         #logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.zeros_initializer())
-        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-1.9), trainable=True)
+        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-2.5), trainable=True)
         pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
         return self.pdfromflat(pdparam), mean
 
