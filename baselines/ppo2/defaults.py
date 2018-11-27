@@ -14,7 +14,7 @@ def mujoco():
 
 def atari():
     return dict(
-        nsteps=128, nminibatches=4,
+        nsteps=32, nminibatches=2,
         lam=0.95, gamma=0.99, noptepochs=4, log_interval=1,
         ent_coef=.01,
         lr=lambda f : f * 2.5e-4,
@@ -23,11 +23,13 @@ def atari():
 
 def optimization():
     return dict(
-        nsteps=2048, nminibatches=3,
-        lam=0.95, gamma=0.9, noptepochs=4, log_interval=10,
+        nsteps=128, nminibatches=20,
+        #best = 512, nmini 10
+        lam=0.95, gamma=0.95, noptepochs=10, log_interval=10,
         ent_coef=0,
+        #vf_coef=0.4,
         #lr=lambda f : f * 2.5e-8,
-        lr=lambda f : f * 2.5e-3,
+        lr=lambda f : f*2.5e-3,
         cliprange=lambda f : f*0.1,
         #cliprange=lambda f : f,
     )

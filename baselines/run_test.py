@@ -1,11 +1,12 @@
 import sys
-import multiprocessing
 import os
 import os.path as osp
 
 from collections import defaultdict
 import tensorflow as tf
 import numpy as np
+import multiprocessing
+from mpi4py import MPI
 
 from baselines.common.vec_env.vec_frame_stack import VecFrameStack
 from baselines.common.cmd_util import common_arg_parser, parse_unknown_args, make_mujoco_env, make_atari_env, make_rosenbrock_env
@@ -17,16 +18,10 @@ from baselines.common.vec_env.vec_normalize import VecNormalize
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common import atari_wrappers, retro_wrappers
-#from baselines import gym
-#from . import gym
 import gym
-print("gym ", str(gym))
 import time
-
-try:
-    from mpi4py import MPI
-except ImportError:
-    MPI = None
+import pickle
+from baselines.common.policies import build_policy
 
 _game_envs = defaultdict(set)
 for env in gym.envs.registry.all():
@@ -48,90 +43,69 @@ _game_envs['retro'] = set([
     'SpaceInvaders-Snes',
 ])
 
-
-def train(args, extra_args):
-    env_type, env_id = get_env_type(args.env)
-
-    total_timesteps = 10*int(args.num_timesteps)
-    print("total number of timesteps gffg",str(args.num_timesteps))
-    seed = args.seed
-
-    learn = get_learn_function(args.alg)
-    alg_kwargs = get_learn_function_defaults(args.alg, env_type)
-    alg_kwargs.update(extra_args)
-
-    print("alg_kwargs "+str(alg_kwargs))
-
-    env = build_env(args)
-
-    if args.network:
-        print("IN HERE NET")
-        alg_kwargs['network'] = args.network
-    else:
-        if alg_kwargs.get('network') is None:
-            alg_kwargs['network'] = get_default_network(env_type)
-
-
-    print('Training {} on {}:{} with arguments \n{}'.format(args.alg, env_type, env_id, alg_kwargs))
-
-
-    model = learn(
-        env=env,
-        seed=seed,
-        total_timesteps=total_timesteps,
-        **alg_kwargs
-    )
-
-    return model, env
-
-
 def run(args, extra_args):
+    nsteps = 1
+
     env_type, env_id = get_env_type(args.env)
 
-    #total_timesteps = int(args.num_timesteps)
-    total_timesteps = int(1000)
+    total_timesteps = int(100)
     seed = args.seed
 
     run = get_run_function(args.alg)
     alg_kwargs = get_learn_function_defaults(args.alg, env_type)
     alg_kwargs.update(extra_args)
 
-    print("args IS WHAT "+str(args))
-
     env = build_env(args)
 
     if args.network:
-        print("IN HERE NET")
         alg_kwargs['network'] = args.network
+        network = args.network
     else:
         if alg_kwargs.get('network') is None:
             alg_kwargs['network'] = get_default_network(env_type)
+            network = get_default_network(env_type)
 
 
-    print('Training {} on {}:{} with arguments \n{}'.format(args.alg, env_type, env_id, alg_kwargs))
     print("")
-    print("seed ", str(seed))
+    print(network)
 
-    model = run(
-        env=env,
-        seed=seed,
-        total_timesteps=total_timesteps,
-        **alg_kwargs
-    )
+    sess = get_session()
+    nbatch = nsteps
 
-    print(model)
+    #policy = build_policy(env, network, **network_kwargs)
+    policy = build_policy(env, network)
 
-    return model, env
+    with tf.variable_scope('ppo2_model', reuse=tf.AUTO_REUSE):
+        act_model = policy(nbatch, 1, sess)
+        '''
+        variables_names = [v.name for v in tf.trainable_variables()]
+        values = sess.run(variables_names)
+        for k, v in zip(variables_names, values):
+            print("Variable: ", str(k))
+        '''
+
+    act_model.action = act_model.pd.mode();
+
+
+    # init model
+    #load_path = "./models3/2400/model.ckpt"
+    load_path = "/Users/romc/Documents/RNN_exploration_learning/models7/2500/model.ckpt"
+
+    #load_path = "./models3/2900/model.ckpt"
+
+    print("LOAD PATH ", str(load_path))
+
+    if load_path is not None:
+        act_model.load(load_path)
+
+    return act_model, env
 
 
 def build_env(args):
-    ncpu = multiprocessing.cpu_count()
-    if sys.platform == 'darwin': ncpu //= 2
-    nenv = args.num_env or ncpu
-    print("")
-    print("nenv "+str(nenv))
+    #ncpu = multiprocessing.cpu_count()
+    nenv = args.num_env
     alg = args.alg
-    rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
+    #rank = MPI.COMM_WORLD.Get_rank() if MPI else 0
     seed = args.seed
 
     env_type, env_id = get_env_type(args.env)
@@ -185,7 +159,9 @@ def build_env(args):
 
     elif env_type == 'optimization':
         frame_stack_size = 4
-        env = make_rosenbrock_env(env_id, nenv, seed)
+        env = gym.make(env_id)
+        #env = make_rosenbrock_env(env_id, nenv, seed)
+        print("env is ", str(env))
 
         #env = VecFrameStack(env, frame_stack_size)
 
@@ -224,9 +200,7 @@ def get_alg_module(alg, submodule=None):
     submodule = submodule or alg
     try:
         # first try to import the alg module from baselines
-        print("IN HERE TRYING ")
         alg_module = import_module('.'.join(['baselines', alg, submodule]))
-        print(alg_module)
     except ImportError:
         # then from rl_algs
         alg_module = import_module('.'.join(['rl_' + 'algs', alg, submodule]))
@@ -262,69 +236,60 @@ def parse(v):
 
 def main():
     # configure logger, disable logging in child MPI processes (with rank > 0)
-    dir = "test2"
     arg_parser = common_arg_parser()
     args, unknown_args = arg_parser.parse_known_args()
     extra_args = {k: parse(v) for k,v in parse_unknown_args(unknown_args).items()}
 
-    if MPI is None or MPI.COMM_WORLD.Get_rank() == 0:
-        rank = 0
-        logger.configure(dir)
-    else:
-        logger.configure(format_strs = [])
-        rank = MPI.COMM_WORLD.Get_rank
+    args.num_env = 1
+    model, env = run(args, extra_args)
 
-    args.play = False
-    args.num_env = 20
-    #args.nsteps = 512
-    #print("ARGS IS ", args)
-    #print("extra_args IS ", extra_args)
-    print("")
-    print("RUNNING CORRECTLY")
-    model, _ = train(args, extra_args)
+    # scenarios to test
+    a = np.array([1, 2, 3])
+    b = np.array([10, 15, 20, 25, 30])
+    x = np.array([3,1,0,-2,-4])
+    y = np.array([3,1,0,-2,-4])
 
-
-    #args.save_path = "/Users/romc/Documents/RNN_exploation_learning/baselines/test/checkpoints/0001"
-
-    if args.save_path is not None and rank == 0:
-        save_path = osp.expanduser(args.save_path)
-        model.save(save_path)
+    test_settings = np.array(np.meshgrid(a, b, x, y)).T.reshape(-1,4)
 
 
 
+    for sample in test_settings:
+        #sample = test_settings[90]
+        print("")
+        print("setting ",str(sample))
 
-    if args.play:
-        # init act model
-        logger.log("Running trained model")
-        env = build_env(args)
-        obs = env.reset()
+
+        # initial_state
+        env.reset()
+
+        obs = env.env.set_state(sample)
+        print(obs)
         s = model.initial_state
         m = [False for _ in range(1)]
-        print("obs is what "+str(obs))
         step = 0
         done = False
+        losses = []
         while done == False:
             step = step+1
-            print(" ")
-            print(" STEP "+str(step))
             out = model.step(obs, S=s, M=m)
             s = out[2]
             m = out[3]
-            actions = out[0]
-
-            print("actions "+str(actions))
-            print(type(actions[0]))
-
+            actions = out[0][0]
+            #print(type(actions))
 
             obs, _, done, _  = env.step(actions)
+            losses.append(obs[-1])
             print(obs)
-            print(done)
 
 
             done = done.any() if isinstance(done, np.ndarray) else done
 
+            result = {'state': sample, 'losses': losses}
+
             if done:
-                obs = env.reset()
+                pickle.dump(result, open( "BLA12BLA2500.p", "ab" ) )
+                # safe result
+            #    obs = env.reset()
 
 
 

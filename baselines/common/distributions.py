@@ -84,6 +84,7 @@ class DiagGaussianPdType(PdType):
         return DiagGaussianPd
 
     def pdfromlatent(self, latent_vector, init_scale=1.0, init_bias=0.0):
+        '''
         activation = tf.tanh;
         me = latent_vector;
         for i in range(1):
@@ -91,11 +92,11 @@ class DiagGaussianPdType(PdType):
 
 
         mean = fc(me, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
-        #mean = fc(latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
-        print("IN HEREEEEEEEEEEEEEEEEEEEEEEEEEEE ",str(mean))
+        '''
+        mean = fc(latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
         init = tf.constant(0.001*np.ones((1,self.size)))
-        #logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.zeros_initializer())
-        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-2.5), trainable=True)
+        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.zeros_initializer())
+        #logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=tf.constant_initializer(-1.0), trainable=True)
         pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
         return self.pdfromflat(pdparam), mean
 
@@ -211,6 +212,7 @@ class DiagGaussianPd(Pd):
     def mode(self):
         return self.mean
     def neglogp(self, x):
+        print("std is ", str(self.std))
         return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) \
                + 0.5 * np.log(2.0 * np.pi) * tf.to_float(tf.shape(x)[-1]) \
                + tf.reduce_sum(self.logstd, axis=-1)
@@ -219,7 +221,6 @@ class DiagGaussianPd(Pd):
         return tf.reduce_sum(other.logstd - self.logstd + (tf.square(self.std) + tf.square(self.mean - other.mean)) / (2.0 * tf.square(other.std)) - 0.5, axis=-1)
     def entropy(self):
         return tf.reduce_sum(self.logstd + .5 * np.log(2.0 * np.pi * np.e), axis=-1)
-        #return tf.reduce_sum(self.logstd,axis=-1) # + .5 * np.log(2.0 * np.pi * np.e), axis=-1)
     def sample(self):
         print(self.mean + self.std * tf.random_normal(tf.shape(self.mean)))
         return self.mean + self.std * tf.random_normal(tf.shape(self.mean))

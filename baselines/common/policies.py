@@ -53,7 +53,6 @@ class PolicyWithValue(object):
         self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
 
         self.action = self.pd.mode()
-
         #self.action = self.pd.sample()
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess
@@ -63,14 +62,17 @@ class PolicyWithValue(object):
             self.q = fc(vf_latent, 'q', env.action_space.n)
             self.vf = self.q
         else:
-            #self.vf = fc(vf_latent, 'vf', 1)
+            self.vf = fc(vf_latent, 'vf', 1)
+            '''
             h = vf_latent
             activation = tf.tanh;
-            for i in range(1):
+            for i in range(2):
                 h = activation(fc(h, 'vf{}'.format(i), nh=3, init_scale=np.sqrt(2)))
             #self.vf = fc(vf_latent, 'vf', 1)
             #self.vf = self.vf[:,0]
-            self.vf = fc(h, 'vf_final', 1)[:,0]
+            self.vf = fc(h, 'vf_final', 1)
+            '''
+            self.vf = self.vf[:,0]
             #self.vf = h[:,0]
 
     def _evaluate(self, variables, observation, **extra_feed):
@@ -131,6 +133,9 @@ class PolicyWithValue(object):
         tf_util.load_state(load_path, sess=self.sess)
 
 def build_policy(env, policy_network, value_network=None,  normalize_observations=False, estimate_q=False, **policy_kwargs):
+    print("")
+    print("policy_kwargs")
+    print(policy_kwargs)
     if isinstance(policy_network, str):
         network_type = policy_network
         policy_network = get_network_builder(network_type)(**policy_kwargs)

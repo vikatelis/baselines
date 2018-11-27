@@ -32,30 +32,38 @@ class Model(object):
 
         print("act_model "+str(act_model))
         A = train_model.pdtype.sample_placeholder([None])
+        #test = tf.placeholder(name="test")
         ADV = tf.placeholder(tf.float32, [None])
         R = tf.placeholder(tf.float32, [None])
         OLDNEGLOGPAC = tf.placeholder(tf.float32, [None])
         OLDVPRED = tf.placeholder(tf.float32, [None])
         LR = tf.placeholder(tf.float32, [])
         CLIPRANGE = tf.placeholder(tf.float32, [])
-
         neglogpac = train_model.pd.neglogp(A)
+        neglogpac_mean = tf.reduce_mean(neglogpac)
         entropy = tf.reduce_mean(train_model.pd.entropy())
 
+
+        #vf loss
         vpred = train_model.vf
         vpredclipped = OLDVPRED + tf.clip_by_value(train_model.vf - OLDVPRED, - CLIPRANGE, CLIPRANGE)
         vf_losses1 = tf.square(vpred - R)
         vf_losses2 = tf.square(vpredclipped - R)
         vf_loss = .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
+
+        #ratio
         ratio = tf.exp(OLDNEGLOGPAC - neglogpac)
+        ratio_mean = tf.reduce_mean(tf.to_float(ratio))
+        #ratio_var , ratio_var2 = tf.nn.moments(tf.to_float(ratio))
+
+        #pg_loss
         pg_losses = -ADV * ratio
         pg_losses2 = -ADV * tf.clip_by_value(ratio, 1.0 - CLIPRANGE, 1.0 + CLIPRANGE)
         pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
         approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - OLDNEGLOGPAC))
-        print()
-        print("CLIPRANGE ",str(CLIPRANGE))
         clipfrac = tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio - 1.0), CLIPRANGE)))
-        loss = pg_losses2 - entropy * ent_coef + vf_loss * vf_coef
+
+        loss = pg_loss - entropy * ent_coef + vf_loss * vf_coef
         params = tf.trainable_variables('ppo2_model')
         trainer = MpiAdamOptimizer(MPI.COMM_WORLD, learning_rate=LR, epsilon=1e-5)
         grads_and_var = trainer.compute_gradients(loss, params)
@@ -64,6 +72,7 @@ class Model(object):
         if max_grad_norm is not None:
             grads, _grad_norm = tf.clip_by_global_norm(grads, max_grad_norm)
         grads_and_var = list(zip(grads, var))
+
 
         _train = trainer.apply_gradients(grads_and_var)
 
@@ -76,10 +85,10 @@ class Model(object):
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks
             return sess.run(
-                [pg_loss, vf_loss, entropy, approxkl, clipfrac, _train],
+                [pg_loss, vf_loss, entropy, approxkl, clipfrac,  ratio_mean, neglogpac_mean,CLIPRANGE ,  _train],
                 td_map
             )[:-1]
-        self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac']
+        self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac', 'ratio_mean', 'neglogpac_mean', 'CLIPRANGE']
 
 
         self.train = train
@@ -183,10 +192,15 @@ def run(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0, 
 
     set_global_seeds(seed)
 
+
+
     if isinstance(lr, float): lr = constfn(lr)
     else: assert callable(lr)
     if isinstance(cliprange, float): cliprange = constfn(cliprange)
     else: assert callable(cliprange)
+
+    print("quarks ", str(network))
+    network_kwargs = {mode:"test"}
 
     policy = build_policy(env, network, **network_kwargs)
 
@@ -199,24 +213,35 @@ def run(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0, 
     print("nsteps "+str(nsteps))
     nbatch = nenvs * nsteps
     print("nbatch "+str(nbatch))
-    nminibatches = min(nminibatches,nenvs)
+    #nminibatches = min(nminibatches,nenvs)
     nbatch_train = nbatch // nminibatches
+    nbatch_train = 1
     print("nbatch "+str(nbatch_train))
     print("nminibatches "+str(nminibatches))
 
+
+
+    print("nbatch_train ",str(nbatch_train))
+
     make_model = lambda : Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nbatch_act=nenvs, nbatch_train=nbatch_train,
-                    nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
+                    nsteps=1, ent_coef=ent_coef, vf_coef=vf_coef,
                     max_grad_norm=max_grad_norm)
 
-    save_interval = 100
+    save_interval = 500
 
 
     model = make_model()
 
-    load_path = "/Users/romc/Documents/RNN_exploration_learning/baselines/models/162/model.ckpt"
+    print("")
+    print("LOAD PATH ", str())
+
+    #load_path = "/Users/romc/Documents/RNN_exploration_learning/baselines/models2/406/model.ckpt"
+    load_path = "./models3/300/model.ckpt"
+    print("LOAD PATH ", str(load_path))
 
     if load_path is not None:
         model.load(load_path)
+    print("model is ", str(model) )
 
     env.close()
     return model
@@ -293,6 +318,8 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
     else: assert callable(cliprange)
     total_timesteps = int(total_timesteps)
 
+    #network_kwargs = {'mode':"train"}
+
     policy = build_policy(env, network, **network_kwargs)
 
     nenvs = env.num_envs
@@ -309,7 +336,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
                     nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
                     max_grad_norm=max_grad_norm)
 
-    save_interval = 100
+    save_interval = 500
 
     '''
     if save_interval and logger.get_dir():
@@ -329,22 +356,16 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         model.load(load_path)
     runner = Runner(env=env, model=model, nsteps=nsteps, gamma=gamma, lam=lam)
 
-    print("RUNNER INITIALIZED "+str(runner))
-
     epinfobuf = deque(maxlen=100)
     tfirststart = time.time()
 
     nupdates = total_timesteps//nbatch
     for update in range(1, nupdates+1):
-        print("UP DATE THE "+str(update))
         assert nbatch % nminibatches == 0
         tstart = time.time()
         frac = 1.0 - (update - 1.0) / nupdates
         lrnow = lr(frac)
-        print("LEARNING RATE ",str(lrnow))
         cliprangenow = cliprange(frac)
-        print("")
-        print("cliprangenow ",str(cliprangenow))
         obs, returns, masks, actions, values, neglogpacs, states, epinfos = runner.run() #pylint: disable=E0632
         epinfobuf.extend(epinfos)
         mblossvals = []
@@ -358,7 +379,6 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
                     slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
                     mblossvals.append(model.train(lrnow, cliprangenow, *slices))
         else: # recurrent version
-            print("dezgdzu ",str(nminibatches))
             assert nenvs % nminibatches == 0
             envsperbatch = nenvs // nminibatches
             envinds = np.arange(nenvs)
@@ -377,6 +397,7 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
         lossvals = np.mean(mblossvals, axis=0)
         tnow = time.time()
         fps = int(nbatch / (tnow - tstart))
+        log_interval = 1
         if update % log_interval == 0 or update == 1:
             ev = explained_variance(values, returns)
             logger.logkv("serial_timesteps", update*nsteps)
@@ -387,21 +408,17 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
             logger.logkv('eprewmean', safemean([epinfo['r'] for epinfo in epinfobuf]))
             logger.logkv('eplenmean', safemean([epinfo['l'] for epinfo in epinfobuf]))
             logger.logkv('time_elapsed', tnow - tfirststart)
+            logger.logkv('ratio', tnow - tfirststart)
             for (lossval, lossname) in zip(lossvals, model.loss_names):
                 logger.logkv(lossname, lossval)
             if MPI.COMM_WORLD.Get_rank() == 0:
                 logger.dumpkvs()
         if save_interval and (update % save_interval == 0 or update == 1 or update == nupdates ) and logger.get_dir() and MPI.COMM_WORLD.Get_rank() == 0:
-            savepath = "./models/" + str(update) + "/model.ckpt"
-            os.makedirs("./models/" + str(update), exist_ok=True)
+            savepath = "./models7/" + str(update) + "/model.ckpt"
+            os.makedirs("./models7/" + str(update), exist_ok=True)
             print(model.save)
             model.save(savepath)
             print('Saving to', savepath)
-            #checkdir = osp.join(logger.get_dir(), 'checkpoints')
-            #os.makedirs(checkdir, exist_ok=True)
-            #savepath = osp.join(checkdir, '%.5i'%update)
-            #print('Saving to', savepath)
-            #model.save(savepath)
     env.close()
     return model
 
