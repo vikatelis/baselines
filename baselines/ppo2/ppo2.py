@@ -414,8 +414,8 @@ def learn(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0
             if MPI.COMM_WORLD.Get_rank() == 0:
                 logger.dumpkvs()
         if save_interval and (update % save_interval == 0 or update == 1 or update == nupdates ) and logger.get_dir() and MPI.COMM_WORLD.Get_rank() == 0:
-            savepath = "./models7/" + str(update) + "/model.ckpt"
-            os.makedirs("./models7/" + str(update), exist_ok=True)
+            savepath = "./models9/" + str(update) + "/model.ckpt"
+            os.makedirs("./models9/" + str(update), exist_ok=True)
             print(model.save)
             model.save(savepath)
             print('Saving to', savepath)

@@ -53,6 +53,7 @@ class PolicyWithValue(object):
         self.pd, self.pi = self.pdtype.pdfromlatent(latent, init_scale=0.01)
 
         self.action = self.pd.mode()
+
         #self.action = self.pd.sample()
         self.neglogp = self.pd.neglogp(self.action)
         self.sess = sess

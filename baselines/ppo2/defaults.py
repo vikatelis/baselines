@@ -26,7 +26,7 @@ def optimization():
         nsteps=128, nminibatches=20,
         #best = 512, nmini 10
         lam=0.95, gamma=0.95, noptepochs=10, log_interval=10,
-        ent_coef=0,
+        ent_coef=0.00,
         #vf_coef=0.4,
         #lr=lambda f : f * 2.5e-8,
         lr=lambda f : f*2.5e-3,
