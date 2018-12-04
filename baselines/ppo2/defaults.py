@@ -23,7 +23,7 @@ def atari():
 
 def optimization():
     return dict(
-        nsteps=512, nminibatches=20,
+        nsteps=512, nminibatches=30,
         #best = 512, nmini 10
         #lam=0.95, gamma=0.95, noptepochs=10, log_interval=10,
         lam=0.95, gamma=0.95, noptepochs=10, log_interval=10,

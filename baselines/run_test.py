@@ -89,7 +89,7 @@ def run(args, extra_args):
 
     # init model
     #load_path = "./models3/2400/model.ckpt"
-    load_path = "/Users/romc/Documents/RNN_exploration_learning/models14/1666/model.ckpt"
+    load_path = "/Users/romc/Documents/RNN_exploration_learning/models15/651/model.ckpt"
 
     #load_path = "./models3/2900/model.ckpt"
 
@@ -291,7 +291,7 @@ def main():
 
             if done:
                 print("saving")
-                pickle.dump(result, open( "test_c3.p", "ab" ) )
+                pickle.dump(result, open( "3.p", "ab" ) )
                 # safe result
             #    obs = env.reset()
 

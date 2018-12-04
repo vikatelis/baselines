@@ -171,8 +171,6 @@ class TensorBoardOutputFormat(KVWriter):
 
 def make_output_format(format, ev_dir, log_suffix=''):
     os.makedirs(ev_dir, exist_ok=True)
-    print("format")
-    print(format)
     format = 'tensorboard'
     if format == 'stdout':
         return HumanOutputFormat(sys.stdout)

@@ -227,7 +227,7 @@ def run(*, network, env, total_timesteps, seed=None, nsteps=2048, ent_coef=0.0, 
                     nsteps=1, ent_coef=ent_coef, vf_coef=vf_coef,
                     max_grad_norm=max_grad_norm)
 
-    save_interval = 500
+    save_interval = 100
 
 
     model = make_model()

@@ -275,7 +275,7 @@ def main():
         rank = MPI.COMM_WORLD.Get_rank
 
     args.play = False
-    args.num_env = 20
+    args.num_env = 30
     #args.nsteps = 512
     #print("ARGS IS ", args)
     #print("extra_args IS ", extra_args)
