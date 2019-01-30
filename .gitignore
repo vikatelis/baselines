@@ -6,6 +6,12 @@
 .DS_Store
 .idea
 
+# Models
+models/
+models7/
+test/
+test2/
+
 # Setuptools distribution and build folders.
 /dist/
 /build
