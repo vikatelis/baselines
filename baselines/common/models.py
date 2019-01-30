@@ -121,11 +121,6 @@ def lstm(nlstm=16, layer_norm=False):
         ## TODO:  need to change initialization of state!
         initial_state = np.zeros(S.shape.as_list(), dtype=float)
 
-
-        print("")
-        print("HHHHH ",str(S.shape.as_list()))
-        print(nenv)
-
         #initial_state = utils.fc(T,'pi_init', [nenv,48], init_scale=0.01, init_bias=0.01)
         #initial_state = tf.get_variable(name='init_state', shape=initial_state.shape, initializer=tf.zeros_initializer(), trainable=True) # task desciptor
 
