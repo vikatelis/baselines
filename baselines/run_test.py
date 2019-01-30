@@ -89,7 +89,7 @@ def run(args, extra_args):
 
     # init model
     #load_path = "./models3/2400/model.ckpt"
-    load_path = "/Users/romc/Documents/RNN_exploration_learning/models16/651/model.ckpt"
+    load_path = "/Users/romc/Documents/RNN_exploration_learning/models15/651/model.ckpt"
 
     #load_path = "./models3/2900/model.ckpt"
 
@@ -274,6 +274,16 @@ def main():
         x = []
         y = []
         unscaled_loss = []
+        actions = np.array([0.0,0.0])
+        #print(type(actions))
+
+        obs, _, done, info  = env.step(actions)
+        losses.append(obs[1])
+        x.append(info['x'])
+        y.append(info['y'])
+        unscaled_loss.append(info['z'])
+        print(obs[1])
+        print(info)
 
         while done == False:
             step = step+1
@@ -281,6 +291,7 @@ def main():
             s = out[2]
             m = out[3]
             actions = out[0][0]
+            #actions = np.array([0.005,0.005])
             #print(type(actions))
 
             obs, _, done, info  = env.step(actions)
@@ -298,7 +309,7 @@ def main():
 
             if done:
                 print("saving")
-                pickle.dump(result, open( "clip_reward_1.p", "ab" ) )
+                pickle.dump(result, open( "double_unchecked.p", "ab" ) )
                 # safe result
             #    obs = env.reset()
 
